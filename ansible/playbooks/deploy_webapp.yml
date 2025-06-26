@@ -1,0 +1,51 @@
+---
+- name: 部署Web应用
+  hosts: webservers
+  become: true
+  
+  vars:
+    app_dir: /var/www/myapp
+    node_version: 16.x
+  
+  tasks:
+    - name: 安装Node.js
+      shell: |
+        curl -sL https://rpm.nodesource.com/setup_{{ node_version }} | bash -
+        yum install -y nodejs
+      args:
+        creates: /usr/bin/node
+        
+    - name: 创建应用目录
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+        
+    - name: 克隆Git仓库
+      git:
+        repo: https://github.com/yourusername/my-web-app.git
+        dest: "{{ app_dir }}"
+        update: yes
+        
+    - name: 安装依赖
+      npm:
+        path: "{{ app_dir }}"
+        
+    - name: 构建应用
+      command: npm run build
+      args:
+        chdir: "{{ app_dir }}"
+        
+    - name: 安装PM2进程管理器
+      npm:
+        name: pm2
+        global: yes
+        
+    - name: 启动应用
+      command: pm2 start {{ app_dir }}/server.js --name my-web-app
+      
+    - name: 设置PM2开机自启
+      command: pm2 startup systemd
+      
+    - name: 保存PM2进程列表
+      command: pm2 save    
